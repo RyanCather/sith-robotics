@@ -4,6 +4,17 @@ import json
 import mysql.connector
 import paho.mqtt.client as mqtt
 from datetime import datetime
+import logging # <-- Import the logging module
+
+# --- Logging Setup ---
+# Set up basic configuration for logging
+logging.basicConfig(
+    level=logging.INFO, # Display INFO, WARNING, ERROR, CRITICAL messages
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+# Alias the logger for convenience
+logger = logging.getLogger(__name__)
 
 # --- Configuration (Defaults from docker-compose.yml) ---
 DB_HOST = os.getenv("DB_HOST", "SITH-MySQL") 
@@ -20,9 +31,11 @@ TRACKING_FILE = "/app/published_modules.json"
 
 # --- Mosquitto Client Setup ---
 def on_connect(client, userdata, flags, rc, properties):
-    print(f"Connected to MQTT broker: {mqtt.connack_string(rc)}")
+    # Use logger.info instead of print
+    logger.info(f"Connected to MQTT broker: {mqtt.connack_string(rc)}")
 
-print(f"Connecting to MQTT broker... {MQTT_HOST}:{MQTT_PORT}")
+# Use logger.info instead of print
+logger.info(f"Connecting to MQTT broker... {MQTT_HOST}:{MQTT_PORT}")
 # mqtt_client = mqtt.Client()
 mqtt_client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
 mqtt_client.on_connect = on_connect
@@ -38,7 +51,8 @@ def load_previous_modules():
                 # Load the list of names and convert to a set for fast lookup
                 return set(json.load(f))
             except json.JSONDecodeError:
-                print(f"Warning: Could not decode {TRACKING_FILE}. Starting fresh.")
+                # Use logger.warning instead of print
+                logger.warning(f"Could not decode {TRACKING_FILE}. Starting fresh.")
     return set()
 
 def save_current_modules(current_module_names):
@@ -77,6 +91,8 @@ def read_and_publish_data():
                 module_value = record.get('data')
 
                 if not module_name or module_value is None:
+                    # Added a debug log for skipped records
+                    logger.debug(f"Skipping invalid record: roverID={module_name}, data={module_value}")
                     continue # Skip invalid records
 
                 # 1. Prepare topic and payload
@@ -88,11 +104,17 @@ def read_and_publish_data():
                 # We use retain=True here to ensure the topic persists on the broker
                 mqtt_client.publish(unique_topic, payload, qos=1, retain=True)
                 published_count += 1
+
+                # Added a debug log for each publication
+                logger.debug(f"Published topic: {unique_topic}, payload: {payload}")
                 
                 # 3. Track the module name for the current run
                 current_module_names.add(module_name)
             
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] Published/Updated {published_count} individual values.")
+            # Use logger.info instead of print
+            logger.info(f"Published/Updated {published_count} individual values.")
+        else:
+            logger.info("No records found in the 'rovers' table to publish.")
         
         cur.close()
         conn.close()
@@ -110,18 +132,23 @@ def read_and_publish_data():
             mqtt_client.publish(clear_topic, payload=None, qos=1, retain=True)
             cleared_count += 1
             
+            # Added a debug log for each cleared topic
+            logger.debug(f"Cleared retained topic: {clear_topic}")
+            
         if cleared_count > 0:
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] Cleared {cleared_count} old retained topics.")
+            # Use logger.info instead of print
+            logger.info(f"Cleared {cleared_count} old retained topics.")
 
 
     except Exception as e:
-        # Exception handling remains the same for database issues
-        if "rovers' doesn't exist" in str(e):
-             print(f"[{datetime.now().strftime('%H:%M:%S')}] ERROR: The 'rovers' table is missing from the database.")
-        elif "Unknown column" in str(e):
-             print(f"[{datetime.now().strftime('%H:%M:%S')}] ERROR: Missing required column(s) in the 'rovers' table.")
+        # Replaced custom print error handling with logger.error
+        error_message = str(e)
+        if "'rovers' doesn't exist" in error_message:
+             logger.error("The 'rovers' table is missing from the database.")
+        elif "Unknown column" in error_message:
+             logger.error("Missing required column(s) in the 'rovers' table.")
         else:
-             print(f"[{datetime.now().strftime('%H:%M:%S')}] ERROR: Could not read database or publish to MQTT: {e}")
+             logger.error(f"Could not read database or publish to MQTT: {e}", exc_info=True) # exc_info=True prints the traceback
              
         # IMPORTANT: If the run failed, we DO NOT update the tracking file, 
         # so we will re-attempt clearing on the next successful run.
@@ -134,7 +161,8 @@ def read_and_publish_data():
 
 
 if __name__ == "__main__":
-    print("DB Publisher service started. Polling database...")
+    # Use logger.info instead of print
+    logger.info("DB Publisher service started. Polling database...")
     # Give the database a moment to fully initialize
     time.sleep(10) 
     while True:
