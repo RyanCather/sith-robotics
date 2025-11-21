@@ -25,7 +25,10 @@ MQTT_HOST = os.getenv("MQTT_HOST", "SITH-MQTT-Broker")
 MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
 POLL_INTERVAL = int(os.getenv("POLL_INTERVAL_SECONDS", 5))
 
-TOPIC_PREFIX = "rovers/" 
+# --- NEW: Define the database table name ---
+DB_TABLE_NAME = "roverCommsLog"
+
+TOPIC_PREFIX = "roverCommsLog/" 
 # File to store the list of module names from the previous run
 TRACKING_FILE = "/app/published_modules.json"
 
@@ -77,7 +80,8 @@ def read_and_publish_data():
         )
         cur = conn.cursor(dictionary=True)
 
-        query = "SELECT roverID, data FROM rovers;"
+        # --- UPDATED: Use the DB_TABLE_NAME variable in the query ---
+        query = f"SELECT roverID, data FROM {DB_TABLE_NAME};"
         cur.execute(query)
         
         results = cur.fetchall()
@@ -114,7 +118,8 @@ def read_and_publish_data():
             # Use logger.info instead of print
             logger.info(f"Published/Updated {published_count} individual values.")
         else:
-            logger.info("No records found in the 'rovers' table to publish.")
+            # --- UPDATED: Use the DB_TABLE_NAME variable in the log message ---
+            logger.info(f"No records found in the '{DB_TABLE_NAME}' table to publish.")
         
         cur.close()
         conn.close()
@@ -143,10 +148,11 @@ def read_and_publish_data():
     except Exception as e:
         # Replaced custom print error handling with logger.error
         error_message = str(e)
-        if "'rovers' doesn't exist" in error_message:
-             logger.error("The 'rovers' table is missing from the database.")
+        # --- UPDATED: Use the DB_TABLE_NAME variable in the error handling ---
+        if f"'{DB_TABLE_NAME}' doesn't exist" in error_message or "Table" in error_message and "doesn't exist" in error_message:
+             logger.error(f"The '{DB_TABLE_NAME}' table is missing from the database.")
         elif "Unknown column" in error_message:
-             logger.error("Missing required column(s) in the 'rovers' table.")
+             logger.error(f"Missing required column(s) in the '{DB_TABLE_NAME}' table.")
         else:
              logger.error(f"Could not read database or publish to MQTT: {e}", exc_info=True) # exc_info=True prints the traceback
              
