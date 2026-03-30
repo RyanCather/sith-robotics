@@ -169,27 +169,35 @@ void transmitData(const char* radioPacket, const char* roverID);
 // }
 
 // Waits for a reply from the receiver
-void waitForReply() {
+String waitForReply() {
   uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];  // Buffer to hold incoming message
   uint8_t len = sizeof(buf);             // Length of buffer
-  // if (DEBUG) {
-  //   Serial.println("Waiting for reply...");
-  // }
+  if (DEBUG) {
+    Serial.println("Waiting for reply...");
+  }
   if (rf95.waitAvailableTimeout(100)) {  // Wait up to 1 second
     if (rf95.recv(buf, &len)) {
       if (DEBUG) {
         Serial.print("Got reply: ");
+
         Serial.println((char*)buf);
-        Serial.print("RSSI: ");
-        Serial.println(rf95.lastRssi(), DEC);  // Print signal strength
       }
+      //Serial.print("RSSI: ");
+      //Serial.println(rf95.lastRssi(), DEC);  // Print signal strength
+      String str = (char*)buf;
+      return str;
     } else {
       if (DEBUG) {
         Serial.println("Receive failed");
       }
+      return "failed";
     }
-  } 
-  
+  } else {
+    if (DEBUG) {
+      Serial.println("No reply, is there a listener around?");
+    }
+    return "No Reply";
+  }
 }
 
 // Transmits a packet via LoRa
@@ -216,4 +224,3 @@ void transmitData(const char* radioPacket, const char* roverID) { // Added 'rove
 
   digitalWrite(LED_BUILTIN, LOW);  // Turn off LED
 }
-
