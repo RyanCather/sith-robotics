@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: ./php/Dockerfile
     container_name: SITH-PHP
-    image: php:8.2-apache
+    image: php:8.5-apache
     ports:
       - "6680:80"  # Accessible to other devices on the network
     volumes:
