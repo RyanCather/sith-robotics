@@ -17,7 +17,7 @@
 
 
 // --- NEW CONSTANT DEFINITION ---
-const char* ROVER_ID = "1"; // Define the constant ID here
+const char* ROVER_ID = "1"; // Define the constant ID here (redundant for now)
 
 // Board Libraries:
 // https://adafruit.github.io/arduino-board-index/package_adafruit_index.json
@@ -39,7 +39,10 @@ unsigned long startTime;
 bool hasSentStop = false;
 
 #include "comms.h"
-
+int currentRoverID = 1; //This is a debug command; remove if its not working.
+bool showID = false; // same with all these
+unsigned long idDisplayStart = 0;
+const int idDisplayDuration = 700; // ms (adjust to taste)
 
 void initialiseTFT() {
   if (!ss.begin()) {
@@ -76,7 +79,7 @@ void initialiseSerial() {
 void debugTransmissionButton() {
   pinMode(7, INPUT);               // Set pin 7 as input (BOOT button)
   if (!digitalRead(7)) {           // Check if button is pressed
-    transmitData("Button Press", ROVER_ID);  // Send message
+    //transmitData("Button Press", ROVER_ID);  // Send message
     waitForReply();                // Wait for response
   }
 }
@@ -112,7 +115,8 @@ void transmitStopCommand(){
   
   if (buttons == 3740 & hasSentStop == false){
     for (int i = 0; i <= 2; i++){ 
-    transmitData("stop", ROVER_ID);
+    //transmitData("stop", ROVER_ID);
+    transmitData("stop", String(currentRoverID).c_str());
   }
     hasSentStop = true;
     return;
@@ -133,7 +137,8 @@ void transmitButtonCommands() {
   if (!(buttons & TFTWING_BUTTON_LEFT)) {
     // Serial.println("LEFT");
     color = ST77XX_WHITE;
-    transmitData("left", ROVER_ID);
+    //transmitData("left", ROVER_ID);
+    transmitData("left", String(currentRoverID).c_str());
     hasSentStop = false;
   }
 
@@ -144,7 +149,8 @@ void transmitButtonCommands() {
   if (!(buttons & TFTWING_BUTTON_RIGHT)) {
     // Serial.println("RIGHT");
     color = ST77XX_WHITE;
-    transmitData("right", ROVER_ID);
+    //transmitData("right", ROVER_ID);
+    transmitData("right", String(currentRoverID).c_str());
     hasSentStop = false;
   }
 
@@ -155,7 +161,8 @@ void transmitButtonCommands() {
   if (!(buttons & TFTWING_BUTTON_DOWN)) {
     // Serial.println("DOWN");
     color = ST77XX_WHITE;
-    transmitData("backward", ROVER_ID);
+    //transmitData("backward", ROVER_ID);
+    transmitData("backward", String(currentRoverID).c_str());
     hasSentStop = false;
   }
 
@@ -166,7 +173,8 @@ void transmitButtonCommands() {
   if (!(buttons & TFTWING_BUTTON_UP)) {
     // Serial.println("UP");
     color = ST77XX_WHITE;
-    transmitData("forward", ROVER_ID);
+    //transmitData("forward", ROVER_ID);
+    transmitData("forward", String(currentRoverID).c_str());
     hasSentStop = false;
   }
 
@@ -177,7 +185,8 @@ void transmitButtonCommands() {
   if (!(buttons & TFTWING_BUTTON_A)) {
     // Serial.println("A");
     color = ST7735_GREEN;
-    transmitData("beep", ROVER_ID);
+    //transmitData("beep", ROVER_ID);
+    transmitData("beep", String(currentRoverID).c_str());
     hasSentStop = false;
   }
 
@@ -196,16 +205,41 @@ void transmitButtonCommands() {
   color = ST77XX_BLACK;
   if (!(buttons & TFTWING_BUTTON_SELECT)) {
     // Serial.println("SELECT");
+    currentRoverID++;
+    if (currentRoverID > 5) currentRoverID = 1;
     color = ST77XX_RED;
-    transmitData("beepTwice", ROVER_ID);
+    //transmitData("IDCycle", ROVER_ID);
+    transmitData("IDCycle", String(currentRoverID).c_str());
     hasSentStop = false;
+    showID = true;
+    idDisplayStart = millis();
+    delay(300);
+
+
   }
 
   tft->fillCircle(135, 40, 7, color);
   waitForReply();
   
 }
+void handleIDDisplay() {
+  if (showID) {
+    // Draw small background (same size vibe as your circles)
+    tft->fillRect(70, 20, 60, 80, ST77XX_BLACK);
 
+    tft->setCursor(80, 32);
+    tft->setTextColor(ST77XX_WHITE);
+    tft->setTextSize(5);
+    tft->print(currentRoverID);
+
+    // Check timeout
+    if (millis() - idDisplayStart > idDisplayDuration) {
+      // Clear it
+      tft->fillRect(120, 5, 20, 15, ST77XX_BLACK);
+      showID = false;
+    }
+  }
+}
 
 // Setup function runs once at startup
 void setup() {
@@ -236,5 +270,6 @@ void loop() {
   // debugTransmissionSimple();  // Send a test message
   // debugTransmissionButton();    // Send message when button is pressed
   // cycleBasicCommands();
+  handleIDDisplay();
   delay(10);  // Wait 1 second before next loop iteration
 }
